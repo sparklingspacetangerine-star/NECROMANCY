@@ -1,5 +1,8 @@
 {
   "item.necromancy.book_of_scourge": "Book of the Scourge",
   "item.necromancy.necromancer_staff": "Staff of the Necromancer",
-  "item.necromancy.book_of_scourge.awaken": "The dead hear your call. Dark Energy awakened."
+  "item.necromancy.book_of_scourge.awaken": "The dead hear your call. Dark Energy awakened.",
+  "key.necromancy.open_menu": "Open necromancer menu",
+  "key.categories.necromancy": "Necromancy",
+  "key.necromancy.summon_menu": "Open Necromancer Summon Menu"
 }
