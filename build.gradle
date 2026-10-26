@@ -9,7 +9,8 @@ group = project.maven_group
 version = project.mod_version
 base { archivesName = project.archives_base_name }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+java { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17; withSourcesJar() }
+tasks.withType(JavaCompile).configureEach { options.release = 17 }
 
 minecraft {
     mappings channel: 'official', version: project.minecraft_version
