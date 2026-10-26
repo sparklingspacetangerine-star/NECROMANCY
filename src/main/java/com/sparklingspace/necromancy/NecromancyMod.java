@@ -26,6 +26,7 @@ import net.minecraftforge.event.village.VillagerTradesEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
@@ -40,7 +41,7 @@ public class NecromancyMod {
  public static final RegistryObject<Item> BOOK_OF_SCOURGE=ITEMS.register("book_of_scourge",()->new Item(new Item.Properties().stacksTo(1)));
  public static final RegistryObject<Item> NECROMANCER_STAFF=ITEMS.register("necromancer_staff",()->new NecromancerStaffItem(new Item.Properties().stacksTo(1).durability(512)));
  private static final Map<UUID,Integer> ENERGY=new HashMap<>(), SUMMON_MODE=new HashMap<>(), STAFF_MODE=new HashMap<>();
- public NecromancyMod(IEventBus bus){ITEMS.register(bus);MinecraftForge.EVENT_BUS.register(this);}
+ public NecromancyMod(){ITEMS.register(FMLJavaModLoadingContext.get().getModEventBus());MinecraftForge.EVENT_BUS.register(this);}
  public static int energy(ServerPlayer p){return ENERGY.getOrDefault(p.getUUID(),100);}
  public static boolean unlocked(ServerPlayer p){return p.getTags().contains(MOD_ID+":unlocked");}
  public static int staffMode(ServerPlayer p){return STAFF_MODE.getOrDefault(p.getUUID(),0);}
