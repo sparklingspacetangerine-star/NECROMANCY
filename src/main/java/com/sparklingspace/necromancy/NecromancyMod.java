@@ -40,6 +40,8 @@ import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 import java.util.HashMap;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.UUID;
 
@@ -54,6 +56,9 @@ public class NecromancyMod {
  public static final RegistryObject<Item> BOOK_OF_SCOURGE=ITEMS.register("book_of_scourge",()->new Item(new Item.Properties().stacksTo(1)));
  public static final RegistryObject<Item> NECROMANCER_STAFF=ITEMS.register("necromancer_staff",()->new NecromancerStaffItem(new Item.Properties().stacksTo(1).durability(512)));
  private static final Map<UUID,Integer> ENERGY=new HashMap<>(), SUMMON_MODE=new HashMap<>(), STAFF_MODE=new HashMap<>();
+ private static final Map<UUID,String> COMMANDS=new HashMap<>(), WORKER_TASKS=new HashMap<>();
+ private static final Map<UUID,Vec3> DEFEND_POSITIONS=new HashMap<>();
+ private static final Map<UUID,List<ItemStack>> WORKER_INVENTORIES=new HashMap<>();
  public NecromancyMod(){IEventBus bus=FMLJavaModLoadingContext.get().getModEventBus();ITEMS.register(bus);POI_TYPES.register(bus);PROFESSIONS.register(bus);MinecraftForge.EVENT_BUS.register(this);}
  public static int energy(ServerPlayer p){return ENERGY.getOrDefault(p.getUUID(),100);}
  public static boolean unlocked(ServerPlayer p){return p.getTags().contains(MOD_ID+":unlocked");}
@@ -61,15 +66,32 @@ public class NecromancyMod {
  public static int summonMode(ServerPlayer p){return SUMMON_MODE.getOrDefault(p.getUUID(),0);}
  public static boolean spend(ServerPlayer p,int n){if(!unlocked(p)||energy(p)<n)return false;ENERGY.put(p.getUUID(),energy(p)-n);return true;}
  @SubscribeEvent public void rightClick(PlayerInteractEvent.RightClickItem e){if(!(e.getEntity() instanceof ServerPlayer p)||!e.getItemStack().is(BOOK_OF_SCOURGE.get()))return;p.addTag(MOD_ID+":unlocked");ENERGY.putIfAbsent(p.getUUID(),100);p.displayClientMessage(Component.literal("§5The Book of the Scourge awakens your necromantic power."),true);e.setCanceled(true);}
- @SubscribeEvent public void serverTick(TickEvent.ServerTickEvent e){if(e.phase!=TickEvent.Phase.END||e.getServer().getTickCount()%20!=0)return;for(ServerPlayer p:e.getServer().getPlayerList().getPlayers())if(unlocked(p)&&energy(p)<100)ENERGY.put(p.getUUID(),energy(p)+1);}
+ @SubscribeEvent public void serverTick(TickEvent.ServerTickEvent e){
+  if(e.phase!=TickEvent.Phase.END||e.getServer().getTickCount()%20!=0)return;
+  for(ServerPlayer p:e.getServer().getPlayerList().getPlayers()){
+   if(unlocked(p)&&energy(p)<100)ENERGY.put(p.getUUID(),energy(p)+1);
+   for(net.minecraft.world.entity.Mob mob:p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.Mob.class,new AABB(p.blockPosition()).inflate(32),m->hasOwner(m,p))){
+    if("follow".equals(COMMANDS.getOrDefault(p.getUUID(),"follow"))&&mob.distanceToSqr(p)>64)mob.getNavigation().moveTo(p,1.1);
+    if("defend".equals(COMMANDS.getOrDefault(p.getUUID(),"follow"))&&DEFEND_POSITIONS.containsKey(mob.getUUID())&&mob.position().distanceToSqr(DEFEND_POSITIONS.get(mob.getUUID()))>64)mob.getNavigation().moveTo(DEFEND_POSITIONS.get(mob.getUUID()).x,DEFEND_POSITIONS.get(mob.getUUID()).y,DEFEND_POSITIONS.get(mob.getUUID()).z,1.0);
+    if(hasWorkerTag(mob)){String task=WORKER_TASKS.getOrDefault(mob.getUUID(),"stop");if("wood".equals(task))mob.setItemSlot(EquipmentSlot.MAINHAND,new ItemStack(Items.IRON_AXE));if("stone".equals(task))mob.setItemSlot(EquipmentSlot.MAINHAND,new ItemStack(Items.IRON_PICKAXE));if(!"stop".equals(task))storeWorkerItem(mob,"wood".equals(task)?Items.OAK_LOG:Items.COBBLESTONE);}
+   }
+  }
+ }
+ private static boolean hasOwner(net.minecraft.world.entity.Mob mob,ServerPlayer p){for(String t:mob.getTags())if(t.endsWith(":"+p.getUUID()))return true;return false;}
+ private static boolean hasWorkerTag(net.minecraft.world.entity.Mob mob){return mob.getTags().stream().anyMatch(t->t.startsWith(MOD_ID+":worker:"));}
+ private static void storeWorkerItem(net.minecraft.world.entity.Mob mob,net.minecraft.world.item.Item item){List<ItemStack> inv=WORKER_INVENTORIES.computeIfAbsent(mob.getUUID(),k->new ArrayList<>());if(inv.isEmpty()||inv.get(inv.size()-1).getCount()>=64)inv.add(new ItemStack(item));else if(inv.get(inv.size()-1).is(item))inv.get(inv.size()-1).grow(1);}
+
  @SubscribeEvent public void trades(VillagerTradesEvent e){if(e.getType()==ACOLYTE.get())e.getTrades().get(1).add((t,r)->new MerchantOffer(new ItemStack(Items.EMERALD,12),new ItemStack(BOOK_OF_SCOURGE.get()),1,5,.05f));}
  @SubscribeEvent public void protectTargets(LivingChangeTargetEvent e){
   LivingEntity ownerGuard=e.getEntity();
   if(!(ownerGuard instanceof net.minecraft.world.entity.Mob mob)||!hasMinionTag(mob)||e.getNewTarget()==null)return;
-  if(e.getNewTarget() instanceof net.minecraft.world.entity.player.Player||e.getNewTarget() instanceof Villager)e.setNewTarget(null);
+  if(e.getNewTarget() instanceof net.minecraft.world.entity.player.Player||e.getNewTarget() instanceof Villager||e.getNewTarget() instanceof net.minecraft.world.entity.Mob target&&hasMinionTag(target))e.setNewTarget(null);
  }
  private static boolean hasMinionTag(net.minecraft.world.entity.Mob mob){for(String tag:mob.getTags())if(tag.startsWith(MOD_ID+":minion:")||tag.startsWith(MOD_ID+":worker:"))return true;return false;}
  private static void addHostileGoal(net.minecraft.world.entity.Mob mob){mob.targetSelector.addGoal(2,new NearestAttackableTargetGoal<>(mob,Monster.class,true));}
+ public static void setCommand(ServerPlayer p,String c){COMMANDS.put(p.getUUID(),c);if("defend".equals(c))for(net.minecraft.world.entity.Mob mob:p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.Mob.class,new AABB(p.blockPosition()).inflate(32),m->hasOwner(m,p)))DEFEND_POSITIONS.put(mob.getUUID(),mob.position());p.displayClientMessage(Component.literal("§5Summon command: "+c),true);}
+ public static void workerInventory(ServerPlayer p){int stacks=0,items=0;for(net.minecraft.world.entity.Mob mob:p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.Mob.class,new AABB(p.blockPosition()).inflate(32),m->hasOwner(m,p)&&hasWorkerTag(m))){List<ItemStack> inv=WORKER_INVENTORIES.getOrDefault(mob.getUUID(),new ArrayList<>());stacks+=inv.size();for(ItemStack stack:inv)items+=stack.getCount();}p.displayClientMessage(Component.literal("§5Worker inventory: "+items+" items in "+stacks+" stacks"),false);}
+ public static void setWorkerTask(ServerPlayer p,String task){for(net.minecraft.world.entity.Mob mob:p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.Mob.class,new AABB(p.blockPosition()).inflate(32),m->hasOwner(m,p)&&hasWorkerTag(m)))WORKER_TASKS.put(mob.getUUID(),task);p.displayClientMessage(Component.literal("§5Worker task: "+task),true);}
  @SubscribeEvent public void commands(RegisterCommandsEvent e) {
   CommandDispatcher<CommandSourceStack> d=e.getDispatcher();
   d.register(Commands.literal("necromancy")
@@ -80,7 +102,9 @@ public class NecromancyMod {
    .then(Commands.literal("summon")
     .then(Commands.literal("warrior").executes(c -> select(c.getSource().getPlayerOrException(), 0)))
     .then(Commands.literal("archer").executes(c -> select(c.getSource().getPlayerOrException(), 1)))
-    .then(Commands.literal("worker").executes(c -> select(c.getSource().getPlayerOrException(), 2)))));
+    .then(Commands.literal("worker").executes(c -> select(c.getSource().getPlayerOrException(), 2))))
+   .then(Commands.literal("command").then(Commands.literal("follow").executes(c->{setCommand(c.getSource().getPlayerOrException(),"follow");return 1;})).then(Commands.literal("roam").executes(c->{setCommand(c.getSource().getPlayerOrException(),"roam");return 1;})).then(Commands.literal("defend").executes(c->{setCommand(c.getSource().getPlayerOrException(),"defend");return 1;})))
+   .then(Commands.literal("worker").then(Commands.literal("wood").executes(c->{setWorkerTask(c.getSource().getPlayerOrException(),"wood");return 1;})).then(Commands.literal("stone").executes(c->{setWorkerTask(c.getSource().getPlayerOrException(),"stone");return 1;})).then(Commands.literal("stop").executes(c->{setWorkerTask(c.getSource().getPlayerOrException(),"stop");return 1;})).then(Commands.literal("inventory").executes(c->{workerInventory(c.getSource().getPlayerOrException());return 1;}))));
  }
 
  private static int select(ServerPlayer p,int m){SUMMON_MODE.put(p.getUUID(),m);p.displayClientMessage(Component.literal("§5Summon selection: "+summonName(m)),true);return 1;}
@@ -88,5 +112,5 @@ public class NecromancyMod {
  public static String summonName(int m){return new String[]{"Skeleton Warrior","Skeleton Archer","Skeleton Worker"}[m];}
  public static void useStaff(ServerPlayer p){if(!unlocked(p)){p.displayClientMessage(Component.literal("§8Read the Book of the Scourge first."),true);return;}if(staffMode(p)==0)battle(p);else summon(p);}
  private static void battle(ServerPlayer p){if(!spend(p,8)){p.displayClientMessage(Component.literal("§8Not enough Dark Energy."),true);return;}Vec3 a=p.getEyePosition(1.0f),b=a.add(p.getViewVector(1).scale(24));EntityHitResult h=net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(p,a,b,new AABB(a,b),x->x.isAlive()&&!x.isSpectator(),576);if(h!=null)h.getEntity().hurt(p.damageSources().magic(),8);p.displayClientMessage(Component.literal("§dDark bolt cast."),true);}
- private static void summon(ServerPlayer p){if(!spend(p,25)){p.displayClientMessage(Component.literal("§8Not enough Dark Energy."),true);return;}ServerLevel w=p.serverLevel();if(summonMode(p)==2){Zombie z=EntityType.ZOMBIE.create(w);if(z==null)return;z.moveTo(p.getX()+1,p.getY(),p.getZ()+1,p.getYRot(),0);z.setCustomName(Component.literal("Skeleton Worker"));z.setCustomNameVisible(true);z.addTag(MOD_ID+":worker:"+p.getUUID());z.setItemSlot(EquipmentSlot.MAINHAND,new ItemStack(Items.IRON_PICKAXE));addHostileGoal(z);w.addFreshEntity(z);}else{Skeleton s=EntityType.SKELETON.create(w);if(s==null)return;s.moveTo(p.getX()+1,p.getY(),p.getZ()+1,p.getYRot(),0);s.setCustomName(Component.literal(summonName(summonMode(p))));s.setCustomNameVisible(true);s.addTag(MOD_ID+":minion:"+p.getUUID());if(summonMode(p)==0)s.setItemSlot(EquipmentSlot.MAINHAND,new ItemStack(Items.IRON_SWORD));else s.setItemSlot(EquipmentSlot.MAINHAND,new ItemStack(Items.BOW));addHostileGoal(s);w.addFreshEntity(s);}p.displayClientMessage(Component.literal("§5"+summonName(summonMode(p))+" rises from the grave."),true);}
+ private static void summon(ServerPlayer p){if(!spend(p,25)){p.displayClientMessage(Component.literal("§8Not enough Dark Energy."),true);return;}ServerLevel w=p.serverLevel();if(summonMode(p)==2){Zombie z=EntityType.ZOMBIE.create(w);if(z==null)return;z.moveTo(p.getX()+1,p.getY(),p.getZ()+1,p.getYRot(),0);z.setCustomName(Component.literal("Skeleton Worker"));z.setCustomNameVisible(true);z.addTag(MOD_ID+":worker:"+p.getUUID());z.setItemSlot(EquipmentSlot.MAINHAND,new ItemStack(Items.IRON_PICKAXE));z.setItemSlot(EquipmentSlot.HEAD,new ItemStack(Items.IRON_HELMET));WORKER_INVENTORIES.put(z.getUUID(),new ArrayList<>());addHostileGoal(z);w.addFreshEntity(z);}else{Skeleton s=EntityType.SKELETON.create(w);if(s==null)return;s.moveTo(p.getX()+1,p.getY(),p.getZ()+1,p.getYRot(),0);s.setCustomName(Component.literal(summonName(summonMode(p))));s.setCustomNameVisible(true);s.addTag(MOD_ID+":minion:"+p.getUUID());if(summonMode(p)==0){s.setItemSlot(EquipmentSlot.MAINHAND,new ItemStack(Items.IRON_SWORD));s.setItemSlot(EquipmentSlot.HEAD,new ItemStack(Items.IRON_HELMET));s.setItemSlot(EquipmentSlot.CHEST,new ItemStack(Items.IRON_CHESTPLATE));}else{s.setItemSlot(EquipmentSlot.MAINHAND,new ItemStack(Items.BOW));s.setItemSlot(EquipmentSlot.HEAD,new ItemStack(Items.LEATHER_HELMET));}addHostileGoal(s);w.addFreshEntity(s);}p.displayClientMessage(Component.literal("§5"+summonName(summonMode(p))+" rises from the grave."),true);}
 }
