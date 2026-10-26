@@ -1,0 +1,21 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="MIT"
+[[mods]]
+modId="necromancy"
+version="${file.jarVersion}"
+displayName="Necromancy"
+authors="Sparklingspace Tangerine Star"
+description='''Channel dark energy, command undead servants, and become a necromancer.'''
+[[dependencies.necromancy]]
+modId="forge"
+mandatory=true
+versionRange="[47.2,)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.necromancy]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.21)"
+ordering="NONE"
+side="BOTH"

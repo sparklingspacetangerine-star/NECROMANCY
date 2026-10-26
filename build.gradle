@@ -1,29 +1,45 @@
 plugins {
-    id 'fabric-loom' version '1.7.4'
+    id 'eclipse'
+    id 'idea'
     id 'maven-publish'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
 }
 
 group = project.maven_group
 version = project.mod_version
-
 base { archivesName = project.archives_base_name }
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+minecraft {
+    mappings channel: 'official', version: project.minecraft_version
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods { necromancy { source sourceSets.main } }
+        }
+        server { args 'nogui' }
+    }
+}
 
 repositories { mavenCentral() }
 
-dependencies {
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+dependencies { minecraft "net.minecraftforge:forge:${project.minecraft_version}-${project.forge_version}" }
+
+jar {
+    manifest {
+        attributes([
+            'Specification-Title': 'Necromancy',
+            'Specification-Vendor': 'Sparklingspace Tangerine Star',
+            'Specification-Version': '1',
+            'Implementation-Title': project.name,
+            'Implementation-Version': project.jar.archiveVersion,
+            'Implementation-Vendor': 'Sparklingspace Tangerine Star'
+        ])
+    }
 }
 
-processResources {
-    inputs.property 'version', project.version
-    filesMatching('fabric.mod.json') { expand 'version': project.version }
-}
-
-tasks.withType(JavaCompile).configureEach { it.options.release = 17 }
-java { withSourcesJar(); sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
-jar { from('LICENSE') { rename { "${it}_${project.archives_base_name}" } } }
-
-publishing { publications { create('mavenJava', MavenPublication) { from components.java } } }
+publishing { publications { register('mavenJava', MavenPublication) { from components.java } } }

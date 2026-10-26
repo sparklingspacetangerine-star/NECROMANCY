@@ -1,6 +1,6 @@
 # Necromancy
 
-A Fabric Minecraft 1.20.1 mod where the player becomes a necromancer by reading the **Book of the Scourge**.
+A Forge Minecraft 1.20.1 mod where the player becomes a necromancer by reading the **Book of the Scourge**.
 
 ## Current playable slice
 
@@ -16,7 +16,7 @@ The first slice uses tagged vanilla mobs so it is compatible with vanilla AI and
 
 ## Build
 
-Requires Java 17 and internet access to the Fabric Maven repository.
+Requires Java 17 and internet access to the Forge and Mojang Maven repositories.
 
 ```sh
 ./gradlew build

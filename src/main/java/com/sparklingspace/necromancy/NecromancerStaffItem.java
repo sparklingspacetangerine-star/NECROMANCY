@@ -1,24 +1,14 @@
 package com.sparklingspace.necromancy;
-
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Hand;
-import net.minecraft.util.TypedActionResult;
-import net.minecraft.world.World;
-
-public class NecromancerStaffItem extends Item {
-    public NecromancerStaffItem(Settings settings) { super(settings); }
-    @Override public TypedActionResult<ItemStack> use(World world, PlayerEntity player, Hand hand) {
-        ItemStack stack=player.getStackInHand(hand);
-        if (!world.isClient && player instanceof ServerPlayerEntity p) {
-            if (player.isSneaking()) NecromancyMod.cycleStaff(p); else NecromancyMod.useStaff(p);
-            stack.damage(1, p, x -> x.sendToolBreakStatus(hand));
-        }
-        return TypedActionResult.success(stack, world.isClient());
-    }
-    @Override public boolean isItemBarVisible(ItemStack stack) { return true; }
-    @Override public int getItemBarStep(ItemStack stack) { return Math.round(13f * (1f - stack.getDamage() / (float) stack.getMaxDamage())); }
-    @Override public int getItemBarColor(ItemStack stack) { return 0x7a1fa2; }
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+public class NecromancerStaffItem extends Item{
+ public NecromancerStaffItem(Properties p){super(p);}
+ @Override public InteractionResultHolder<ItemStack> use(Level l,Player p,InteractionHand h){ItemStack s=p.getItemInHand(h);if(!l.isClientSide&&p instanceof ServerPlayer sp){if(p.isCrouching())NecromancyMod.cycleStaff(sp);else NecromancyMod.useStaff(sp);s.hurtAndBreak(1,sp,x->x.broadcastBreakEvent(h));}return InteractionResultHolder.sidedSuccess(s,l.isClientSide);}
+ @Override public boolean isBarVisible(ItemStack s){return true;}
+ @Override public int getBarColor(ItemStack s){return 0x7a1fa2;}
 }
