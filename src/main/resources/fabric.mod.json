@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "necromancy",
+  "version": "${version}",
+  "name": "Necromancy",
+  "description": "Channel dark energy, command undead servants, and become a necromancer.",
+  "authors": [
+    "Sparklingspace Tangerine Star"
+  ],
+  "license": "MIT",
+  "icon": "assets/necromancy/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.sparklingspace.necromancy.NecromancyMod"
+    ],
+    "client": [
+      "com.sparklingspace.necromancy.NecromancyClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.15.11",
+    "minecraft": "~1.20.1",
+    "java": ">=17",
+    "fabric-api": "*"
+  }
+}
